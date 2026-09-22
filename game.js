@@ -443,6 +443,12 @@ function die(label) {
   STATE = "FAIL";
   sfx.crash();
   attemptsPerLevel[currentLevelIndex]++;
+  const level = LEVELS[currentLevelIndex];
+  logDeath({
+    level: currentLevelIndex,
+    obstacle: label,
+    progress: (player.worldX / level.length) * 100
+  }); // sin await: no retrasa la pantalla de derrota
   document.getElementById("fail-detail").textContent =
     `Te detuvo: "${label}" — intento #${attemptsPerLevel[currentLevelIndex]} en este nivel.`;
   showScreen("fail");
@@ -452,36 +458,108 @@ async function completeLevel() {
   STATE = "LEVEL_COMPLETE";
   sfx.levelComplete();
   const timeMs = performance.now() - levelStartTime;
+  const attempts = attemptsPerLevel[currentLevelIndex];
+  const statsText = `Tiempo: ${(timeMs / 1000).toFixed(1)}s · Choques antes de pasarlo: ${attempts}`;
 
-  await saveScore({
+  const saved = await saveScore({
     playerName,
     level: currentLevelIndex,
     timeMs,
-    attempts: attemptsPerLevel[currentLevelIndex]
+    attempts
   });
+  attemptsPerLevel[currentLevelIndex] = 0; // cada resultado guarda los choques de ESA corrida
+  refreshAccountProgress();
+
+  const guestNote = !saved && supabaseReady ? " · (Invitado: no se guardó en el ranking)" : "";
 
   if (currentLevelIndex === LEVELS.length - 1) {
-    document.getElementById("victory-stats").textContent =
-      `Tiempo total del último nivel: ${(timeMs / 1000).toFixed(1)}s · Intentos en este nivel: ${attemptsPerLevel[currentLevelIndex]}`;
+    document.getElementById("victory-stats").textContent = statsText + guestNote;
     sfx.victory();
     showScreen("victory");
     STATE = "VICTORY";
+    runDeploySequence();
   } else {
-    document.getElementById("level-complete-stats").textContent =
-      `Tiempo: ${(timeMs / 1000).toFixed(1)}s · Intentos en este nivel: ${attemptsPerLevel[currentLevelIndex]}`;
+    document.getElementById("level-complete-stats").textContent = statsText + guestNote;
     showScreen("levelComplete");
   }
 }
 
 // ============================================================
+// DEPLOY FINAL — al pasar el último nivel, se "despliega" DevBoard
+// (dashboard.html) con las estadísticas del jugador.
+// ============================================================
+function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
+
+/** La animación de deploy sigue solo mientras la pantalla de victoria esté a la vista. */
+function deployActive() {
+  return STATE === "VICTORY" && !screens.victory.classList.contains("hidden");
+}
+
+async function runDeploySequence() {
+  const log = document.getElementById("deploy-log");
+  const btnOpen = document.getElementById("btn-open-devboard");
+  const btnCreate = document.getElementById("btn-create-account");
+  btnOpen.classList.add("hidden");
+  btnCreate.classList.add("hidden");
+  log.textContent = "";
+  const print = async (line, wait = 380) => {
+    if (!deployActive()) return; // el jugador ya salió de la pantalla
+    log.textContent += line + "\n";
+    await sleep(wait);
+  };
+
+  await print("$ git push origin main");
+  await print("→ Ejecutando pipeline de CI/CD…");
+
+  if (!currentUser) {
+    await print("✗ Deploy rechazado: se requiere una cuenta para desplegar a producción.", 0);
+    btnCreate.classList.toggle("hidden", !supabaseReady);
+    return;
+  }
+
+  const completed = await getCompletedLevels();
+  for (let i = 0; i < LEVELS.length; i++) {
+    const ok = completed.has(i);
+    await print(`  ${ok ? "✓" : "✗"} Etapa ${i + 1}: ${LEVELS[i].name.replace(/^Nivel \d+:\s*/, "")}`, 220);
+  }
+
+  const missing = LEVELS.map((_, i) => i).filter((i) => !completed.has(i));
+  if (missing.length > 0) {
+    await print(`✗ Build incompleto: te falta completar ${missing.map((i) => "Nivel " + (i + 1)).join(", ")}.`, 0);
+    return;
+  }
+
+  await print("✓ Build exitoso — desplegando DevBoard a producción…", 600);
+  btnOpen.classList.remove("hidden");
+  for (let s = 3; s > 0; s--) {
+    if (!deployActive()) return;
+    await print(`  Abriendo en ${s}…`, 1000);
+  }
+  if (deployActive()) goToDevBoard(true);
+}
+
+function goToDevBoard(justDeployed = false) {
+  window.location.href = "dashboard.html" + (justDeployed ? "?deploy=1" : "");
+}
+
+// ============================================================
 // UI — botones
 // ============================================================
-document.getElementById("btn-start").addEventListener("click", () => {
+function startGame() {
   ensureAudio();
-  const nameInput = document.getElementById("player-name").value.trim();
-  playerName = nameInput || "Anónimo";
+  playerName = currentUser ? displayNameOf(currentUser) : "Invitado";
   attemptsPerLevel = new Array(LEVELS.length).fill(0);
   openLevelSelect();
+}
+document.getElementById("btn-start").addEventListener("click", startGame);
+document.getElementById("btn-start-offline").addEventListener("click", startGame);
+document.getElementById("btn-guest").addEventListener("click", startGame);
+document.getElementById("btn-open-devboard").addEventListener("click", () => goToDevBoard(true));
+document.getElementById("btn-devboard").addEventListener("click", () => goToDevBoard(false));
+document.getElementById("btn-create-account").addEventListener("click", () => {
+  STATE = "START";
+  setAuthMode("register");
+  showScreen("start");
 });
 
 document.getElementById("btn-retry").addEventListener("click", () => {
@@ -490,6 +568,7 @@ document.getElementById("btn-retry").addEventListener("click", () => {
 
 document.getElementById("btn-menu").addEventListener("click", () => {
   STATE = "START";
+  refreshAccountProgress();
   showScreen("start");
 });
 
@@ -520,16 +599,23 @@ function openLevelSelect() {
   showScreen("levelSelect");
 }
 
-function renderLevelSelect() {
+async function renderLevelSelect() {
   const grid = document.getElementById("level-grid");
   grid.innerHTML = "";
+  // Mejores tiempos personales (solo con sesión) para marcar niveles completados.
+  const myBest = {};
+  (await getMyScores()).forEach((s) => {
+    if (myBest[s.level] === undefined || s.time_ms < myBest[s.level]) myBest[s.level] = s.time_ms;
+  });
 
   LEVELS.forEach((level, i) => {
     const card = document.createElement("button");
-    card.className = "level-card";
+    const done = myBest[i] !== undefined;
+    card.className = "level-card" + (done ? " done" : "");
     card.innerHTML = `
-      <span class="level-num">NIVEL ${i + 1}</span>
+      <span class="level-num">NIVEL ${i + 1}${done ? " · ✓" : ""}</span>
       <div class="level-name">${level.name.replace(/^Nivel \d+:\s*/, "")}</div>
+      ${done ? `<div class="level-mine">Tu mejor: ${(myBest[i] / 1000).toFixed(1)}s</div>` : ""}
       <div class="level-best" data-best-for="${i}">Cargando mejor tiempo…</div>
     `;
     card.addEventListener("click", () => {
@@ -544,7 +630,7 @@ function renderLevelSelect() {
       const el = grid.querySelector(`[data-best-for="${i}"]`);
       if (!el) return;
       el.textContent = scores && scores.length > 0
-        ? `Mejor tiempo: ${(scores[0].time_ms / 1000).toFixed(1)}s (${scores[0].player_name})`
+        ? `Récord: ${(scores[0].time_ms / 1000).toFixed(1)}s (${escapeHtml(scores[0].player_name)})`
         : "Sin jugar todavía";
     });
   });
@@ -580,7 +666,7 @@ async function renderLeaderboard(levelIdx) {
   list.innerHTML = "";
   scores.forEach((s, i) => {
     const li = document.createElement("li");
-    li.innerHTML = `<span>#${i + 1} ${s.player_name}</span><span>${(s.time_ms / 1000).toFixed(1)}s</span>`;
+    li.innerHTML = `<span>#${i + 1} ${escapeHtml(s.player_name)}</span><span>${(s.time_ms / 1000).toFixed(1)}s</span>`;
     list.appendChild(li);
   });
 }
@@ -598,3 +684,111 @@ document.getElementById("btn-view-ranking-final").addEventListener("click", open
 document.getElementById("btn-close-leaderboard").addEventListener("click", () => {
   showScreen(STATE === "VICTORY" ? "victory" : "start");
 });
+
+// ============================================================
+// CUENTAS — registro / login en el menú de inicio (Supabase Auth)
+// ============================================================
+function escapeHtml(str) {
+  return String(str).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+let authMode = "login"; // "login" | "register"
+const authEls = {
+  loggedOut: document.getElementById("auth-logged-out"),
+  loggedIn: document.getElementById("auth-logged-in"),
+  offline: document.getElementById("auth-offline"),
+  form: document.getElementById("auth-form"),
+  username: document.getElementById("auth-username"),
+  email: document.getElementById("auth-email"),
+  password: document.getElementById("auth-password"),
+  submit: document.getElementById("auth-submit"),
+  message: document.getElementById("auth-message"),
+  name: document.getElementById("auth-display-name"),
+  mail: document.getElementById("auth-display-email"),
+  progressText: document.getElementById("deploy-progress-text"),
+  progressFill: document.getElementById("deploy-progress-fill"),
+  devboardBtn: document.getElementById("btn-devboard")
+};
+
+function setAuthMessage(text, kind = "") {
+  authEls.message.textContent = text;
+  authEls.message.className = "auth-message" + (kind ? " " + kind : "");
+}
+
+function setAuthMode(mode) {
+  authMode = mode;
+  document.querySelectorAll(".auth-tab").forEach((t) =>
+    t.classList.toggle("active", t.dataset.mode === mode));
+  authEls.username.classList.toggle("hidden", mode !== "register");
+  authEls.submit.textContent = mode === "register" ? "Crear cuenta" : "Iniciar sesión";
+  authEls.password.autocomplete = mode === "register" ? "new-password" : "current-password";
+  setAuthMessage("");
+}
+
+document.querySelectorAll(".auth-tab").forEach((tab) =>
+  tab.addEventListener("click", () => setAuthMode(tab.dataset.mode)));
+
+// Evita que escribir "espacio" en los campos haga saltar a Byte.
+authEls.form.addEventListener("keydown", (e) => e.stopPropagation());
+authEls.form.addEventListener("keyup", (e) => e.stopPropagation());
+
+authEls.form.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const email = authEls.email.value.trim();
+  const password = authEls.password.value;
+  const username = authEls.username.value.trim();
+
+  if (!email || !password) return setAuthMessage("Escribe tu correo y contraseña.", "error");
+  if (password.length < 6) return setAuthMessage("La contraseña debe tener al menos 6 caracteres.", "error");
+  if (authMode === "register" && username.length < 2) {
+    return setAuthMessage("Elige un nombre de jugador (mín. 2 letras).", "error");
+  }
+
+  authEls.submit.disabled = true;
+  setAuthMessage(authMode === "register" ? "Creando cuenta…" : "Iniciando sesión…");
+  const result = authMode === "register"
+    ? await signUp({ email, password, username })
+    : await signIn({ email, password });
+  authEls.submit.disabled = false;
+
+  if (result.error) return setAuthMessage(result.error, "error");
+  if (result.needsConfirmation) {
+    setAuthMode("login");
+    return setAuthMessage("¡Cuenta creada! Revisa tu correo para confirmarla y luego inicia sesión.", "ok");
+  }
+  authEls.password.value = "";
+  // onAuthChange se encarga de actualizar la tarjeta.
+});
+
+document.getElementById("btn-logout").addEventListener("click", async () => {
+  await signOut();
+  setAuthMode("login");
+});
+
+/** Actualiza la barra "Etapas completadas" y el candado del DevBoard. */
+async function refreshAccountProgress() {
+  if (!currentUser) return;
+  const completed = await getCompletedLevels();
+  const n = completed.size;
+  const total = LEVELS.length;
+  authEls.progressText.textContent = `Etapas completadas: ${n}/${total}`;
+  authEls.progressFill.style.width = (n / total) * 100 + "%";
+  const unlocked = n >= total;
+  authEls.devboardBtn.disabled = !unlocked;
+  authEls.devboardBtn.textContent = unlocked ? "🚀 Mi DevBoard" : `🔒 Mi DevBoard (${n}/${total})`;
+}
+
+function renderAuthCard(user) {
+  authEls.offline.classList.toggle("hidden", supabaseReady);
+  authEls.loggedOut.classList.toggle("hidden", !supabaseReady || !!user);
+  authEls.loggedIn.classList.toggle("hidden", !supabaseReady || !user);
+  if (user) {
+    authEls.name.textContent = displayNameOf(user);
+    authEls.mail.textContent = user.email;
+    playerName = displayNameOf(user);
+    refreshAccountProgress();
+  }
+}
+
+getCurrentUser().then(renderAuthCard);
+onAuthChange(renderAuthCard);

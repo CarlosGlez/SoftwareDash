@@ -83,6 +83,8 @@ body {
   gap: 12px;
   padding: 24px;
   text-align: center;
+  overflow-y: auto;
+  justify-content: safe center;
 }
 
 .screen.hidden { display: none; }
@@ -120,24 +122,6 @@ kbd {
   font-size: 12px;
 }
 
-#name-label {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  font-size: 13px;
-  color: var(--text-dim);
-}
-
-#player-name {
-  margin-top: 4px;
-  padding: 8px 10px;
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  background: #0d1117;
-  color: var(--text);
-  font-size: 14px;
-}
-
 button {
   padding: 10px 22px;
   font-size: 15px;
@@ -153,7 +137,9 @@ button {
 button:hover { transform: translateY(-1px); opacity: 0.92; }
 button:active { transform: translateY(0); }
 
-button#btn-leaderboard,
+button:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+
+.secondary-btn,
 button#btn-retry-level,
 button#btn-menu,
 button#btn-close-leaderboard,
@@ -231,3 +217,125 @@ button#btn-view-ranking-final {
   font-size: 14px;
 }
 #leaderboard-list li:first-child { color: #ffd700; font-weight: 600; }
+
+/* ============================================================
+   Menú de inicio: info + tarjeta de cuenta
+   ============================================================ */
+#screen-start { gap: 8px; padding: 16px 24px; }
+#screen-start h1 { font-size: 2rem; }
+#screen-start .tagline { margin: -4px 0 4px; }
+
+.start-layout {
+  display: grid;
+  grid-template-columns: 1.15fr 1fr;
+  gap: 14px;
+  width: 100%;
+  max-width: 760px;
+  align-items: stretch;
+}
+.start-layout .info-box { max-width: none; font-size: 13px; padding: 10px 16px; }
+.start-footer { display: flex; align-items: center; gap: 16px; }
+.start-footer .credits { margin: 0; text-align: left; line-height: 1.4; }
+.start-footer #btn-leaderboard { padding: 8px 18px; font-size: 14px; }
+
+.auth-card {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  text-align: left;
+}
+.auth-card > div { display: flex; flex-direction: column; gap: 8px; }
+.auth-card > div.hidden, .auth-card .hidden { display: none; }
+
+.auth-tabs { display: flex; gap: 4px; background: var(--bg-dark); padding: 3px; border-radius: 7px; }
+.auth-tab {
+  flex: 1;
+  background: transparent;
+  color: var(--text-dim);
+  padding: 6px 8px;
+  font-size: 13px;
+  border-radius: 5px;
+}
+.auth-tab.active { background: var(--border); color: var(--text); }
+
+#auth-form { display: flex; flex-direction: column; gap: 6px; }
+#auth-form input {
+  padding: 7px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg-dark);
+  color: var(--text);
+  font-size: 14px;
+}
+#auth-form input:focus { outline: none; border-color: var(--accent); }
+#auth-form button { padding: 8px 12px; font-size: 14px; }
+
+.auth-message { font-size: 12px; color: var(--text-dim); margin: 0; min-height: 1em; }
+.auth-message.error { color: var(--danger); }
+.auth-message.ok { color: var(--success); }
+
+.link-btn {
+  background: none;
+  color: var(--accent);
+  padding: 2px 0;
+  font-size: 13px;
+  font-weight: 500;
+  align-self: flex-start;
+}
+.link-btn:hover { text-decoration: underline; transform: none; }
+
+.auth-hello { margin: 0; font-size: 15px; }
+.auth-email { margin: -6px 0 0; font-size: 12px; color: var(--text-dim); word-break: break-all; }
+
+.deploy-progress { font-size: 12px; color: var(--text-dim); }
+.deploy-progress-bar {
+  height: 6px;
+  margin-top: 4px;
+  background: var(--bg-dark);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+#deploy-progress-fill { height: 100%; width: 0%; background: var(--success); transition: width 0.4s ease; }
+
+#auth-logged-in button:not(.link-btn) { padding: 8px 12px; font-size: 14px; }
+
+/* Selección de nivel: niveles ya completados */
+.level-card.done { border-color: rgba(63, 185, 80, 0.5); }
+.level-card.done .level-num { color: var(--success); }
+.level-card .level-mine { font-size: 12px; color: var(--success); margin-bottom: 2px; }
+
+/* Victoria: log de deploy estilo terminal */
+.deploy-log {
+  width: 100%;
+  max-width: 560px;
+  min-height: 90px;
+  max-height: 170px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 10px 12px;
+  background: #010409;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font: 12px/1.5 ui-monospace, "Cascadia Code", Consolas, monospace;
+  color: #7ee787;
+  text-align: left;
+  white-space: pre-wrap;
+}
+.victory-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.victory-actions .hidden { display: none; }
+
+@media (max-width: 700px) {
+  /* En celular el canvas queda muy bajito: los menús ocupan toda la pantalla. */
+  .screen { position: fixed; border-radius: 0; z-index: 20; }
+  .start-footer { flex-direction: column; gap: 8px; }
+  .start-footer .credits { text-align: center; }
+  .start-layout { grid-template-columns: 1fr; }
+  .start-layout .info-box { display: none; }
+}
+
+.hidden { display: none !important; }

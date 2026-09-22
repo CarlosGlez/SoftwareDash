@@ -23,22 +23,62 @@
     <!-- PANTALLA DE INICIO -->
     <div id="screen-start" class="screen">
       <h1>SoftwareDash</h1>
-      <p class="tagline">Sobrevive al ciclo de vida del software.</p>
-      <div class="info-box">
-        <p><strong>Objetivo:</strong> guía a <em>Byte</em>, un proceso de compilación, a través de 3 etapas
-        del desarrollo de software (sintaxis, errores en tiempo de ejecución y deuda técnica en producción)
-        sin chocar contra los errores que aparecen en tu camino.</p>
-        <p><strong>Controles:</strong> presiona <kbd>Espacio</kbd>, haz clic o toca la pantalla para saltar.
-        Mantén presionado para saltos más altos.</p>
-        <p><strong>Progreso:</strong> tus intentos y tu mejor tiempo por nivel se guardan en un ranking en línea (Supabase).</p>
+      <p class="tagline">Compila. Esquiva los bugs. Despliega.</p>
+
+      <div class="start-layout">
+        <div class="info-box">
+          <p><strong>Historia:</strong> <em>Byte</em> es el proceso que está compilando <strong>DevBoard</strong>,
+          un dashboard para desarrolladores. Llévalo por las 5 etapas del ciclo de vida del software sin chocar
+          contra los errores y despliega DevBoard a producción.</p>
+          <p><strong>Controles:</strong> <kbd>Espacio</kbd>, clic o toque para saltar.
+          Mantén presionado para saltar en cadena al tocar el piso.</p>
+          <p><strong>Recompensa:</strong> completa los 5 niveles con tu cuenta y desbloquea <em>tu</em> DevBoard
+          con tus estadísticas de cada nivel.</p>
+        </div>
+
+        <!-- Tarjeta de cuenta: cambia entre "sin sesión" y "con sesión" -->
+        <div id="auth-card" class="auth-card">
+          <!-- Sin sesión -->
+          <div id="auth-logged-out">
+            <div class="auth-tabs" role="tablist">
+              <button type="button" class="auth-tab active" data-mode="login" role="tab">Iniciar sesión</button>
+              <button type="button" class="auth-tab" data-mode="register" role="tab">Crear cuenta</button>
+            </div>
+            <form id="auth-form" novalidate>
+              <input id="auth-username" type="text" maxlength="16" placeholder="Nombre de jugador" autocomplete="nickname" class="register-only hidden">
+              <input id="auth-email" type="email" placeholder="Correo" autocomplete="email" required>
+              <input id="auth-password" type="password" placeholder="Contraseña (mín. 6)" autocomplete="current-password" minlength="6" required>
+              <button type="submit" id="auth-submit">Iniciar sesión</button>
+            </form>
+            <p id="auth-message" class="auth-message" aria-live="polite"></p>
+            <button type="button" id="btn-guest" class="link-btn">Jugar como invitado →</button>
+          </div>
+
+          <!-- Con sesión -->
+          <div id="auth-logged-in" class="hidden">
+            <p class="auth-hello">Hola, <strong id="auth-display-name">jugador</strong></p>
+            <p class="auth-email" id="auth-display-email"></p>
+            <div class="deploy-progress">
+              <span id="deploy-progress-text">Etapas completadas: 0/5</span>
+              <div class="deploy-progress-bar"><div id="deploy-progress-fill"></div></div>
+            </div>
+            <button type="button" id="btn-start">Jugar</button>
+            <button type="button" id="btn-devboard" class="secondary-btn" disabled>🔒 Mi DevBoard</button>
+            <button type="button" id="btn-logout" class="link-btn">Cerrar sesión</button>
+          </div>
+
+          <!-- Sin Supabase configurado -->
+          <div id="auth-offline" class="hidden">
+            <p class="auth-message">Modo local: sin cuentas (Supabase no configurado).</p>
+            <button type="button" id="btn-start-offline">Jugar</button>
+          </div>
+        </div>
       </div>
-      <label id="name-label">
-        Tu nombre (para el ranking):
-        <input id="player-name" type="text" maxlength="16" placeholder="ej. Carlos">
-      </label>
-      <button id="btn-start">Jugar</button>
-      <button id="btn-leaderboard">Ver ranking</button>
-      <p class="credits">Proyecto de Nuevas Tecnologías · ISND · Equipo: <span id="team-names">[Carlos González, Itzel Alejandra y Pablo Govea]</span></p>
+
+      <div class="start-footer">
+        <button id="btn-leaderboard" class="secondary-btn">Ver ranking</button>
+        <p class="credits">Nuevas Tecnologías · ISND<br>Carlos González, Itzel Alejandra y Pablo Govea</p>
+      </div>
     </div>
 
     <!-- SELECCIÓN DE NIVEL -->
@@ -56,12 +96,17 @@
       <button id="btn-retry-level">Reintentar</button>
     </div>
 
-    <!-- PANTALLA DE VICTORIA FINAL -->
+    <!-- PANTALLA DE VICTORIA FINAL: "deploy" de DevBoard -->
     <div id="screen-victory" class="screen hidden">
       <h2>¡Compilación exitosa! 🎉</h2>
       <p id="victory-stats"></p>
-      <button id="btn-restart-game">Jugar de nuevo</button>
-      <button id="btn-view-ranking-final">Ver ranking</button>
+      <pre id="deploy-log" class="deploy-log" aria-live="polite"></pre>
+      <div class="victory-actions">
+        <button id="btn-open-devboard" class="hidden">Abrir DevBoard 🚀</button>
+        <button id="btn-create-account" class="hidden">Crear cuenta</button>
+        <button id="btn-restart-game" class="secondary-btn">Jugar de nuevo</button>
+        <button id="btn-view-ranking-final" class="secondary-btn">Ver ranking</button>
+      </div>
     </div>
 
     <!-- PANTALLA DE DERROTA -->

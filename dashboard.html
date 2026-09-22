@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DevBoard | SoftwareDash</title>
+<link rel="stylesheet" href="dashboard.css">
+</head>
+<body>
+  <!-- DevBoard: el "software" que Byte estuvo compilando en SoftwareDash.
+       Se desbloquea al completar los 5 niveles con una cuenta. -->
+  <header class="topbar">
+    <div class="brand"><span class="logo">▲</span> DevBoard</div>
+    <nav class="topbar-right">
+      <a href="index.html" class="nav-link">← Volver al juego</a>
+      <span id="user-chip" class="user-chip hidden"><span id="user-avatar" class="avatar"></span><span id="user-name"></span></span>
+      <button id="btn-logout" class="nav-btn hidden">Cerrar sesión</button>
+    </nav>
+  </header>
+
+  <main id="app">
+    <p id="loading" class="loading">Cargando build…</p>
+
+    <!-- Estado bloqueado (sin sesión o build incompleto) -->
+    <section id="locked" class="locked hidden">
+      <div class="locked-icon">🔒</div>
+      <h1 id="locked-title">Build pendiente</h1>
+      <p id="locked-text"></p>
+      <div id="locked-stages" class="locked-stages"></div>
+      <a href="index.html" class="btn-primary">Ir al juego</a>
+    </section>
+
+    <!-- Dashboard desbloqueado -->
+    <section id="dashboard" class="hidden">
+      <div id="deploy-banner" class="deploy-banner hidden">
+        <strong>🎉 Deploy exitoso.</strong> DevBoard ya está en producción gracias a tu build.
+      </div>
+
+      <div class="project-head">
+        <div>
+          <p class="crumbs"><span id="crumb-user"></span> / devboard</p>
+          <h1>devboard <span class="badge-prod">● Production</span></h1>
+          <p class="meta" id="project-meta"></p>
+        </div>
+      </div>
+
+      <div class="kpis" id="kpis"></div>
+
+      <h2 class="section-title">Pipeline <span class="muted">· una etapa por nivel</span></h2>
+      <div class="pipeline" id="pipeline"></div>
+
+      <div class="charts">
+        <figure class="card chart-card">
+          <figcaption>
+            <h3>Choques por nivel</h3>
+            <p class="muted">Cuántas veces te detuvo un bug en cada etapa</p>
+          </figcaption>
+          <div id="chart-deaths" class="chart"></div>
+        </figure>
+        <figure class="card chart-card">
+          <figcaption>
+            <h3>Dónde chocas</h3>
+            <p class="muted">Choques según el % de avance del nivel</p>
+          </figcaption>
+          <div id="chart-heatmap" class="chart"></div>
+          <div class="heat-legend"><span>menos</span><span class="heat-scale"></span><span>más</span></div>
+        </figure>
+      </div>
+
+      <div class="bottom">
+        <div class="card">
+          <h3>Bugs más letales</h3>
+          <ol id="top-bugs" class="top-bugs"></ol>
+        </div>
+        <div class="card">
+          <h3>Historial de builds</h3>
+          <ul id="build-log" class="build-log"></ul>
+        </div>
+      </div>
+
+      <p class="footer">DevBoard es el producto ficticio que se "desarrolla" en SoftwareDash · Nuevas Tecnologías · ISND</p>
+    </section>
+  </main>
+
+  <div id="tooltip" class="tooltip hidden" role="tooltip"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="supabase-config.js"></script>
+  <script src="levels.js"></script>
+  <script src="dashboard.js"></script>
+</body>
+</html>
