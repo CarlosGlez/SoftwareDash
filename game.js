@@ -35,17 +35,23 @@ const hudTimer = document.getElementById("hud-timer");
 const progressBar = document.getElementById("progress-bar");
 
 // ---------- Constantes de física ----------
+// Salto tipo Geometry Dash: impulso FIJO (no varía si mantienes presionado
+// más o menos tiempo). Mantener presionado hace "bunny-hop": vuelve a saltar
+// automáticamente cada vez que Byte toca el piso, igual que en el juego original.
 const GRAVITY = 0.55;
 const JUMP_VELOCITY = -11.5;
-const JUMP_CUT_MULTIPLIER = 0.45; // salto corto si sueltas el botón pronto
+const ROTATION_SPEED = 0.14; // velocidad de giro del cubo mientras está en el aire
 const PLAYER_SIZE = 30;
 const PLAYER_SCREEN_X = 130; // posición fija del jugador en pantalla
+const READY_DELAY_MS = 1500; // pausa de "prepárate" antes de que arranque el nivel
 
 // ---------- Estado del juego ----------
-let STATE = "START";
+let STATE = "START"; // START | COUNTDOWN | PLAYING | FAIL | LEVEL_COMPLETE | VICTORY
 let currentLevelIndex = 0;
 let attemptsPerLevel = [0, 0, 0];
 let playerName = "Anónimo";
+let jumpHeld = false; // true mientras el jugador mantiene presionado saltar
+let countdownEndsAt = 0;
 
 let player, cameraX, levelStartTime, elapsed, deathLabel;
 
@@ -55,15 +61,28 @@ function resetLevel() {
     y: LEVELS[currentLevelIndex].groundY - PLAYER_SIZE,
     vy: 0,
     onGround: true,
-    holdingJump: false
+    rotation: 0
   };
   cameraX = 0;
-  levelStartTime = performance.now();
   elapsed = 0;
   deathLabel = null;
+  levelStartTime = null; // se fija al primer frame de PLAYING (después de la cuenta regresiva)
   hudLevel.textContent = LEVELS[currentLevelIndex].name;
   hudAttempts.textContent = `Intentos: ${attemptsPerLevel[currentLevelIndex]}`;
   progressBar.style.width = "0%";
+  hudTimer.textContent = "0.0s";
+}
+
+/**
+ * Prepara el nivel y da un margen de "prepárate" antes de activar los
+ * controles y el scroll. Evita que, en niveles rápidos (nivel 3), el
+ * jugador reciba un obstáculo encima apenas le da "Reintentar".
+ */
+function startCountdown() {
+  resetLevel();
+  STATE = "COUNTDOWN";
+  countdownEndsAt = performance.now() + READY_DELAY_MS;
+  showScreen(null);
 }
 
 // ============================================================
@@ -100,35 +119,28 @@ const sfx = {
 };
 
 // ============================================================
-// INPUT — un solo botón: saltar
+// INPUT — un solo botón: saltar (estilo Geometry Dash: "bunny-hop")
+// ------------------------------------------------------------
+// No hay salto "variable" por duración. Mientras jumpHeld sea true,
+// updatePhysics() vuelve a saltar automáticamente cada vez que Byte
+// toca el piso — igual que mantener presionado en Geometry Dash.
 // ============================================================
-function tryJump() {
+function setJumpHeld(value) {
   ensureAudio();
-  if (STATE !== "PLAYING") return;
-  if (player.onGround) {
-    player.vy = JUMP_VELOCITY;
-    player.onGround = false;
-    player.holdingJump = true;
-    sfx.jump();
-  }
-}
-function releaseJump() {
-  if (player && player.holdingJump && player.vy < JUMP_VELOCITY * JUMP_CUT_MULTIPLIER) {
-    player.vy = JUMP_VELOCITY * JUMP_CUT_MULTIPLIER;
-  }
-  if (player) player.holdingJump = false;
+  jumpHeld = value;
 }
 
 window.addEventListener("keydown", (e) => {
-  if (e.code === "Space") { e.preventDefault(); tryJump(); }
+  if (e.code === "Space") { e.preventDefault(); setJumpHeld(true); }
 });
 window.addEventListener("keyup", (e) => {
-  if (e.code === "Space") releaseJump();
+  if (e.code === "Space") setJumpHeld(false);
 });
-canvas.addEventListener("mousedown", tryJump);
-canvas.addEventListener("mouseup", releaseJump);
-canvas.addEventListener("touchstart", (e) => { e.preventDefault(); tryJump(); }, { passive: false });
-canvas.addEventListener("touchend", (e) => { e.preventDefault(); releaseJump(); }, { passive: false });
+canvas.addEventListener("mousedown", () => setJumpHeld(true));
+canvas.addEventListener("mouseup", () => setJumpHeld(false));
+canvas.addEventListener("mouseleave", () => setJumpHeld(false));
+canvas.addEventListener("touchstart", (e) => { e.preventDefault(); setJumpHeld(true); }, { passive: false });
+canvas.addEventListener("touchend", (e) => { e.preventDefault(); setJumpHeld(false); }, { passive: false });
 
 // ============================================================
 // FÍSICA + COLISIONES
@@ -154,6 +166,11 @@ function updatePhysics(dt) {
   player.vy += GRAVITY;
   player.y += player.vy;
 
+  // Rotación del cubo mientras está en el aire (estética Geometry Dash)
+  if (!player.onGround) {
+    player.rotation += ROTATION_SPEED;
+  }
+
   // ¿Hay piso debajo del jugador o es un hueco?
   const gap = getGapAt(player.worldX + PLAYER_SIZE / 2);
   const groundY = level.groundY;
@@ -163,6 +180,14 @@ function updatePhysics(dt) {
       player.y = groundY - PLAYER_SIZE;
       player.vy = 0;
       player.onGround = true;
+      // Al aterrizar, el cubo "encaja" en el ángulo recto más cercano.
+      player.rotation = Math.round(player.rotation / (Math.PI / 2)) * (Math.PI / 2);
+      // Bunny-hop: si el jugador mantiene presionado, vuelve a saltar de inmediato.
+      if (jumpHeld) {
+        player.vy = JUMP_VELOCITY;
+        player.onGround = false;
+        sfx.jump();
+      }
     } else {
       player.onGround = false;
     }
@@ -257,8 +282,7 @@ function draw() {
   const py = player.y;
   ctx.save();
   ctx.translate(px + PLAYER_SIZE / 2, py + PLAYER_SIZE / 2);
-  const tilt = Math.max(-0.4, Math.min(0.4, player.vy / 25));
-  ctx.rotate(tilt);
+  ctx.rotate(player.rotation);
   ctx.fillStyle = "#58a6ff";
   ctx.fillRect(-PLAYER_SIZE / 2, -PLAYER_SIZE / 2, PLAYER_SIZE, PLAYER_SIZE);
   ctx.fillStyle = "#0d1117";
@@ -283,13 +307,39 @@ let lastTime = 0;
 function loop(t) {
   const dt = t - lastTime;
   lastTime = t;
+
   if (STATE === "PLAYING") {
+    if (levelStartTime === null) levelStartTime = t; // arranca el cronómetro justo al salir de la cuenta regresiva
     updatePhysics(dt);
     draw();
+  } else if (STATE === "COUNTDOWN") {
+    draw(); // escena estática (nivel en su posición inicial) mientras se cuenta
+    drawCountdown();
+    if (performance.now() >= countdownEndsAt) {
+      levelStartTime = null; // se fija en el primer frame de PLAYING
+      STATE = "PLAYING";
+    }
   }
+
   requestAnimationFrame(loop);
 }
 requestAnimationFrame(loop);
+
+function drawCountdown() {
+  const msLeft = Math.max(0, countdownEndsAt - performance.now());
+  const secsLeft = Math.ceil(msLeft / 1000);
+  ctx.save();
+  ctx.fillStyle = "rgba(13,17,23,0.45)";
+  ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+  ctx.fillStyle = "#e6edf3";
+  ctx.textAlign = "center";
+  ctx.font = "bold 64px sans-serif";
+  ctx.fillText(secsLeft > 0 ? String(secsLeft) : "¡YA!", CANVAS_W / 2, CANVAS_H / 2 + 20);
+  ctx.font = "16px sans-serif";
+  ctx.fillStyle = "#8b949e";
+  ctx.fillText("Prepárate…", CANVAS_W / 2, CANVAS_H / 2 - 40);
+  ctx.restore();
+}
 
 // ============================================================
 // TRANSICIONES DE ESTADO
@@ -342,15 +392,11 @@ document.getElementById("btn-start").addEventListener("click", () => {
   playerName = nameInput || "Anónimo";
   currentLevelIndex = 0;
   attemptsPerLevel = [0, 0, 0];
-  resetLevel();
-  STATE = "PLAYING";
-  showScreen(null);
+  startCountdown();
 });
 
 document.getElementById("btn-retry").addEventListener("click", () => {
-  resetLevel();
-  STATE = "PLAYING";
-  showScreen(null);
+  startCountdown();
 });
 
 document.getElementById("btn-menu").addEventListener("click", () => {
@@ -360,23 +406,17 @@ document.getElementById("btn-menu").addEventListener("click", () => {
 
 document.getElementById("btn-next-level").addEventListener("click", () => {
   currentLevelIndex++;
-  resetLevel();
-  STATE = "PLAYING";
-  showScreen(null);
+  startCountdown();
 });
 
 document.getElementById("btn-retry-level").addEventListener("click", () => {
-  resetLevel();
-  STATE = "PLAYING";
-  showScreen(null);
+  startCountdown();
 });
 
 document.getElementById("btn-restart-game").addEventListener("click", () => {
   currentLevelIndex = 0;
   attemptsPerLevel = [0, 0, 0];
-  resetLevel();
-  STATE = "PLAYING";
-  showScreen(null);
+  startCountdown();
 });
 
 // ---------- Ranking ----------
