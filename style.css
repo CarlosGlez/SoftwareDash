@@ -168,7 +168,39 @@ button#btn-view-ranking-final {
 #fail-message { color: var(--danger); }
 #screen-victory h2, #screen-level-complete h2 { color: var(--success); }
 
-#leaderboard-tabs { display: flex; gap: 8px; margin-bottom: 4px; }
+#level-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+  width: 100%;
+  max-width: 620px;
+  margin: 8px 0;
+}
+
+.level-card {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px 14px;
+  text-align: left;
+  cursor: pointer;
+  color: var(--text);
+  font: inherit;
+  transition: transform 0.1s ease, border-color 0.15s ease;
+}
+.level-card:hover { transform: translateY(-2px); border-color: var(--accent); }
+.level-card .level-num {
+  display: inline-block;
+  font-size: 11px;
+  color: var(--accent);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  margin-bottom: 4px;
+}
+.level-card .level-name { font-weight: 600; font-size: 15px; margin: 2px 0 8px; }
+.level-card .level-best { font-size: 12px; color: var(--text-dim); }
+
+#leaderboard-tabs { display: flex; gap: 8px; margin-bottom: 4px; flex-wrap: wrap; }
 #leaderboard-tabs button {
   background: var(--bg-panel);
   color: var(--text-dim);

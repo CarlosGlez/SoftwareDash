@@ -38,7 +38,14 @@
       </label>
       <button id="btn-start">Jugar</button>
       <button id="btn-leaderboard">Ver ranking</button>
-      <p class="credits">Proyecto de Nuevas Tecnologías · ISND · Equipo: <span id="team-names">[Integrantes aquí]</span></p>
+      <p class="credits">Proyecto de Nuevas Tecnologías · ISND · Equipo: <span id="team-names">[Carlos González, Itzel Alejandra y Pablo Govea]</span></p>
+    </div>
+
+    <!-- SELECCIÓN DE NIVEL -->
+    <div id="screen-level-select" class="screen hidden">
+      <h2>Selecciona un nivel</h2>
+      <div id="level-grid"></div>
+      <button id="btn-level-select-back">Volver</button>
     </div>
 
     <!-- PANTALLA DE VICTORIA DE NIVEL -->
@@ -68,11 +75,7 @@
     <!-- RANKING -->
     <div id="screen-leaderboard" class="screen hidden">
       <h2>Ranking</h2>
-      <div id="leaderboard-tabs">
-        <button class="lb-tab" data-level="0">Nivel 1</button>
-        <button class="lb-tab" data-level="1">Nivel 2</button>
-        <button class="lb-tab" data-level="2">Nivel 3</button>
-      </div>
+      <div id="leaderboard-tabs"><!-- generado dinámicamente según LEVELS.length --></div>
       <ol id="leaderboard-list"><li>Cargando…</li></ol>
       <button id="btn-close-leaderboard">Cerrar</button>
     </div>

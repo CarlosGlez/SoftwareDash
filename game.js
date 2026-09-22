@@ -23,6 +23,7 @@ const CANVAS_H = canvas.height;
 
 const screens = {
   start: document.getElementById("screen-start"),
+  levelSelect: document.getElementById("screen-level-select"),
   levelComplete: document.getElementById("screen-level-complete"),
   victory: document.getElementById("screen-victory"),
   fail: document.getElementById("screen-fail"),
@@ -390,9 +391,8 @@ document.getElementById("btn-start").addEventListener("click", () => {
   ensureAudio();
   const nameInput = document.getElementById("player-name").value.trim();
   playerName = nameInput || "Anónimo";
-  currentLevelIndex = 0;
-  attemptsPerLevel = [0, 0, 0];
-  startCountdown();
+  attemptsPerLevel = new Array(LEVELS.length).fill(0);
+  openLevelSelect();
 });
 
 document.getElementById("btn-retry").addEventListener("click", () => {
@@ -414,12 +414,72 @@ document.getElementById("btn-retry-level").addEventListener("click", () => {
 });
 
 document.getElementById("btn-restart-game").addEventListener("click", () => {
-  currentLevelIndex = 0;
-  attemptsPerLevel = [0, 0, 0];
-  startCountdown();
+  openLevelSelect();
 });
 
+document.getElementById("btn-level-select-back").addEventListener("click", () => {
+  STATE = "START";
+  showScreen("start");
+});
+
+// ---------- Selección de nivel (catálogo, estilo Geometry Dash) ----------
+// Se genera a partir del arreglo LEVELS, así que si se agregan más niveles
+// en levels.js, aparecen aquí automáticamente sin tocar este archivo.
+function openLevelSelect() {
+  STATE = "START"; // el catálogo no es parte de la máquina de estados del juego en sí
+  renderLevelSelect();
+  showScreen("levelSelect");
+}
+
+function renderLevelSelect() {
+  const grid = document.getElementById("level-grid");
+  grid.innerHTML = "";
+
+  LEVELS.forEach((level, i) => {
+    const card = document.createElement("button");
+    card.className = "level-card";
+    card.innerHTML = `
+      <span class="level-num">NIVEL ${i + 1}</span>
+      <div class="level-name">${level.name.replace(/^Nivel \d+:\s*/, "")}</div>
+      <div class="level-best" data-best-for="${i}">Cargando mejor tiempo…</div>
+    `;
+    card.addEventListener("click", () => {
+      ensureAudio();
+      currentLevelIndex = i;
+      startCountdown();
+    });
+    grid.appendChild(card);
+
+    // Mejor tiempo registrado (Supabase o localStorage) — no bloquea el render de la tarjeta.
+    getTopScores(i).then((scores) => {
+      const el = grid.querySelector(`[data-best-for="${i}"]`);
+      if (!el) return;
+      el.textContent = scores && scores.length > 0
+        ? `Mejor tiempo: ${(scores[0].time_ms / 1000).toFixed(1)}s (${scores[0].player_name})`
+        : "Sin jugar todavía";
+    });
+  });
+}
+
 // ---------- Ranking ----------
+function renderLeaderboardTabs() {
+  const wrap = document.getElementById("leaderboard-tabs");
+  wrap.innerHTML = "";
+  LEVELS.forEach((level, i) => {
+    const btn = document.createElement("button");
+    btn.className = "lb-tab" + (i === 0 ? " active" : "");
+    btn.dataset.level = String(i);
+    btn.textContent = `Nivel ${i + 1}`;
+    btn.addEventListener("click", () => {
+      wrap.querySelectorAll(".lb-tab").forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      renderLeaderboard(i);
+    });
+    wrap.appendChild(btn);
+  });
+}
+renderLeaderboardTabs();
+
 async function renderLeaderboard(levelIdx) {
   const list = document.getElementById("leaderboard-list");
   list.innerHTML = "<li>Cargando…</li>";
@@ -436,18 +496,11 @@ async function renderLeaderboard(levelIdx) {
   });
 }
 
-document.querySelectorAll(".lb-tab").forEach((btn) => {
-  btn.addEventListener("click", () => {
-    document.querySelectorAll(".lb-tab").forEach((b) => b.classList.remove("active"));
-    btn.classList.add("active");
-    renderLeaderboard(Number(btn.dataset.level));
-  });
-});
-
 function openLeaderboard() {
   showScreen("leaderboard");
   document.querySelectorAll(".lb-tab").forEach((b) => b.classList.remove("active"));
-  document.querySelector('.lb-tab[data-level="0"]').classList.add("active");
+  const firstTab = document.querySelector('.lb-tab[data-level="0"]');
+  if (firstTab) firstTab.classList.add("active");
   renderLeaderboard(0);
 }
 

@@ -19,8 +19,9 @@ pueda comparar su desempeño.
 
 ## Integrantes
 
-- Carlos [agregar apellido] — [rol / responsabilidades]
-- [Agregar demás integrantes del equipo]
+- Carlos González
+- Itzel Alejandra
+- Pablo Govea
 
 ## Tecnologías utilizadas
 
