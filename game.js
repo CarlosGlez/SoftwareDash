@@ -349,7 +349,8 @@ function draw() {
       ctx.lineTo(sx + obs.w, base);
       ctx.closePath();
       ctx.fill();
-      drawLabel(obs.label, sx + obs.w / 2, fromCeiling ? tip + 16 : tip - 6);
+      // En grupos de picos pegados solo uno dibuja la etiqueta (noLabel en los demás).
+      if (!obs.noLabel) drawLabel(obs.label, sx + obs.w / 2, fromCeiling ? tip + 16 : tip - 6);
     } else if (obs.type === "block") {
       const top = fromCeiling ? 0 : level.groundY - obs.h;
       ctx.fillStyle = "#d29922";
