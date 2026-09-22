@@ -21,12 +21,15 @@ body {
   background: radial-gradient(circle at 50% 0%, #1a2233, var(--bg-dark));
   font-family: 'Segoe UI', system-ui, sans-serif;
   color: var(--text);
+  overscroll-behavior: none; /* evita "jalar para recargar" mientras juegas en celular */
 }
 
 #game-container {
   position: relative;
-  width: 900px;
-  max-width: 96vw;
+  /* Responsive: lo más ancho posible sin pasar de 900px, del ancho de la
+     pantalla, ni de la altura disponible (el canvas es 2.5:1 + ~44px de HUD). */
+  width: min(900px, 96vw, calc((100vh - 64px) * 2.5));
+  width: min(900px, 96vw, calc((100dvh - 64px) * 2.5));
 }
 
 #hud {
@@ -41,7 +44,18 @@ body {
   font-size: 14px;
 }
 
-#hud-level { font-weight: 600; color: var(--accent); white-space: nowrap; }
+#hud-level {
+  font-weight: 600;
+  color: var(--accent);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  max-width: 45%;
+}
+#progress-bar-wrap { min-width: 40px; }
+
+#rotate-hint { display: none; }
 
 #progress-bar-wrap {
   flex: 1;
@@ -63,6 +77,10 @@ body {
 
 #game-canvas {
   display: block;
+  touch-action: none; /* sin zoom por doble toque ni scroll al saltar */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
   width: 100%;
   height: auto;
   aspect-ratio: 900 / 360;
@@ -329,13 +347,33 @@ button#btn-view-ranking-final {
 .victory-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
 .victory-actions .hidden { display: none; }
 
-@media (max-width: 700px) {
+@media (max-width: 700px), (max-height: 500px) {
   /* En celular el canvas queda muy bajito: los menús ocupan toda la pantalla. */
   .screen { position: fixed; border-radius: 0; z-index: 20; }
   .start-footer { flex-direction: column; gap: 8px; }
   .start-footer .credits { text-align: center; }
-  .start-layout { grid-template-columns: 1fr; }
   .start-layout .info-box { display: none; }
+  .start-layout { grid-template-columns: 1fr; max-width: 420px; }
+  #hud { gap: 8px; padding: 6px 10px; font-size: 12px; }
+  #screen-start h1 { font-size: 1.6rem; }
+  .screen h2 { font-size: 1.3rem; }
+  .level-card { padding: 10px 12px; }
+  #level-grid { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+}
+
+/* Celular en vertical: sugerencia para girarlo (el juego sigue funcionando). */
+@media (orientation: portrait) and (max-width: 700px) {
+  #rotate-hint {
+    display: block;
+    margin: 0 0 10px;
+    padding: 8px 12px;
+    font-size: 13px;
+    text-align: center;
+    color: var(--text-dim);
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
 }
 
 .hidden { display: none !important; }

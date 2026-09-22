@@ -18,8 +18,19 @@
 // ---------- Referencias al DOM ----------
 const canvas = document.getElementById("game-canvas");
 const ctx = canvas.getContext("2d");
-const CANVAS_W = canvas.width;
-const CANVAS_H = canvas.height;
+// Tamaño LÓGICO del mundo visible. El canvas se escala con CSS para ser
+// responsive, y su resolución interna se multiplica por devicePixelRatio para
+// que se vea nítido en celulares y pantallas retina.
+const CANVAS_W = 900;
+const CANVAS_H = 360;
+function setupHiDPI() {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  canvas.width = CANVAS_W * dpr;
+  canvas.height = CANVAS_H * dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+setupHiDPI();
+window.addEventListener("resize", setupHiDPI);
 
 const screens = {
   start: document.getElementById("screen-start"),
@@ -46,6 +57,13 @@ const PLAYER_SIZE = 30;
 const PLAYER_SCREEN_X = 130; // posición fija del jugador en pantalla
 const READY_DELAY_MS = 1500; // pausa de "prepárate" antes de que arranque el nivel
 
+// Paso fijo de simulación: la física SIEMPRE avanza a 60 pasos por segundo,
+// sin importar los FPS del dispositivo (30 Hz en modo ahorro de batería,
+// 120/144 Hz en monitores gamer, caídas de rendimiento…). Así la velocidad
+// del nivel y el arco de salto de 41 pasos son idénticos en cualquier equipo.
+const STEP_MS = 1000 / 60;
+const MAX_STEPS_PER_FRAME = 5; // si el equipo se traba, no intenta "ponerse al día" sin límite
+
 // ---------- Estado del juego ----------
 let STATE = "START"; // START | COUNTDOWN | PLAYING | FAIL | LEVEL_COMPLETE | VICTORY
 let currentLevelIndex = 0;
@@ -55,6 +73,8 @@ let jumpHeld = false; // true mientras el jugador mantiene presionado saltar
 let countdownEndsAt = 0;
 
 let player, cameraX, levelStartTime, elapsed, deathLabel;
+let simSteps = 0;     // pasos de física simulados en el intento actual (cronómetro justo)
+let accumulator = 0;  // tiempo real pendiente de simular
 
 function resetLevel() {
   player = {
@@ -69,6 +89,8 @@ function resetLevel() {
   elapsed = 0;
   deathLabel = null;
   levelStartTime = null; // se fija al primer frame de PLAYING (después de la cuenta regresiva)
+  simSteps = 0;
+  accumulator = 0;
   hudLevel.textContent = LEVELS[currentLevelIndex].name;
   hudAttempts.textContent = `Intentos: ${attemptsPerLevel[currentLevelIndex]}`;
   progressBar.style.width = "0%";
@@ -141,8 +163,21 @@ window.addEventListener("keyup", (e) => {
 canvas.addEventListener("mousedown", () => setJumpHeld(true));
 canvas.addEventListener("mouseup", () => setJumpHeld(false));
 canvas.addEventListener("mouseleave", () => setJumpHeld(false));
-canvas.addEventListener("touchstart", (e) => { e.preventDefault(); setJumpHeld(true); }, { passive: false });
-canvas.addEventListener("touchend", (e) => { e.preventDefault(); setJumpHeld(false); }, { passive: false });
+// En celular se puede tocar CUALQUIER parte de la pantalla para saltar (no solo
+// el canvas), así en vertical no tienes que atinarle a una franja delgada.
+function isPlayingTouch(e) {
+  return (STATE === "PLAYING" || STATE === "COUNTDOWN") && !e.target.closest("button, input, a, .screen");
+}
+window.addEventListener("touchstart", (e) => {
+  if (!isPlayingTouch(e)) return;
+  e.preventDefault();
+  setJumpHeld(true);
+}, { passive: false });
+window.addEventListener("touchend", (e) => {
+  if (isPlayingTouch(e)) e.preventDefault();
+  setJumpHeld(false); // siempre suelta, aunque hayas muerto a medio toque
+}, { passive: false });
+window.addEventListener("touchcancel", () => setJumpHeld(false));
 
 // ============================================================
 // FÍSICA + COLISIONES
@@ -177,8 +212,9 @@ function rectsOverlap(ax, ay, aw, ah, bx, by, bw, bh) {
   return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
 }
 
-function updatePhysics(dt) {
+function updatePhysics() {
   const level = LEVELS[currentLevelIndex];
+  simSteps++;
 
   // Avance horizontal automático (como en Geometry Dash)
   player.worldX += level.speed;
@@ -262,7 +298,9 @@ function updatePhysics(dt) {
   }
 
   // HUD
-  elapsed = performance.now() - levelStartTime;
+  // Tiempo del intento = pasos simulados (no reloj real): si el juego se traba
+  // o pierdes el foco de la pestaña, no te penaliza en el ranking.
+  elapsed = simSteps * STEP_MS;
   hudTimer.textContent = (elapsed / 1000).toFixed(1) + "s";
   progressBar.style.width = Math.min(100, (player.worldX / level.length) * 100) + "%";
 }
@@ -287,14 +325,12 @@ function draw() {
 
   // Piso (con huecos)
   ctx.fillStyle = "#21262d";
-  const step = 4;
-  ctx.beginPath();
-  for (let sx = 0; sx <= CANVAS_W; sx += step) {
-    const worldX = sx + cameraX;
-    const gap = getGapAt(worldX);
-    if (!gap) {
-      ctx.fillRect(sx, level.groundY, step + 1, CANVAS_H - level.groundY);
-    }
+  ctx.fillRect(0, level.groundY, CANVAS_W, CANVAS_H - level.groundY);
+  for (const obs of level.obstacles) {
+    if (obs.type !== "gap") continue;
+    const sx = obs.x - cameraX;
+    if (sx + obs.w < 0 || sx > CANVAS_W) continue;
+    ctx.clearRect(sx, level.groundY, obs.w, CANVAS_H - level.groundY);
   }
 
   // Obstáculos visibles
@@ -395,12 +431,17 @@ function drawLabel(text, x, y) {
 // ============================================================
 let lastTime = 0;
 function loop(t) {
-  const dt = t - lastTime;
+  // dt acotado: si la pestaña estuvo oculta, no simula segundos de golpe.
+  const dt = Math.min(t - lastTime, STEP_MS * MAX_STEPS_PER_FRAME);
   lastTime = t;
 
   if (STATE === "PLAYING") {
     if (levelStartTime === null) levelStartTime = t; // arranca el cronómetro justo al salir de la cuenta regresiva
-    updatePhysics(dt);
+    accumulator += dt;
+    while (accumulator >= STEP_MS && STATE === "PLAYING") {
+      updatePhysics();
+      accumulator -= STEP_MS;
+    }
     draw();
   } else if (STATE === "COUNTDOWN") {
     draw(); // escena estática (nivel en su posición inicial) mientras se cuenta
@@ -457,7 +498,7 @@ function die(label) {
 async function completeLevel() {
   STATE = "LEVEL_COMPLETE";
   sfx.levelComplete();
-  const timeMs = performance.now() - levelStartTime;
+  const timeMs = simSteps * STEP_MS;
   const attempts = attemptsPerLevel[currentLevelIndex];
   const statsText = `Tiempo: ${(timeMs / 1000).toFixed(1)}s · Choques antes de pasarlo: ${attempts}`;
 
