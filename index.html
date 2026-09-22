@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SoftwareDash | ISND</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <div id="game-container">
+
+    <!-- HUD -->
+    <div id="hud">
+      <span id="hud-level">Nivel 1: Sintaxis Básica</span>
+      <div id="progress-bar-wrap"><div id="progress-bar"></div></div>
+      <span id="hud-attempts">Intentos: 0</span>
+      <span id="hud-timer">0.0s</span>
+    </div>
+
+    <canvas id="game-canvas" width="900" height="360"></canvas>
+
+    <!-- PANTALLA DE INICIO -->
+    <div id="screen-start" class="screen">
+      <h1>SoftwareDash</h1>
+      <p class="tagline">Sobrevive al ciclo de vida del software.</p>
+      <div class="info-box">
+        <p><strong>Objetivo:</strong> guía a <em>Byte</em>, un proceso de compilación, a través de 3 etapas
+        del desarrollo de software (sintaxis, errores en tiempo de ejecución y deuda técnica en producción)
+        sin chocar contra los errores que aparecen en tu camino.</p>
+        <p><strong>Controles:</strong> presiona <kbd>Espacio</kbd>, haz clic o toca la pantalla para saltar.
+        Mantén presionado para saltos más altos.</p>
+        <p><strong>Progreso:</strong> tus intentos y tu mejor tiempo por nivel se guardan en un ranking en línea (Supabase).</p>
+      </div>
+      <label id="name-label">
+        Tu nombre (para el ranking):
+        <input id="player-name" type="text" maxlength="16" placeholder="ej. Carlos">
+      </label>
+      <button id="btn-start">Jugar</button>
+      <button id="btn-leaderboard">Ver ranking</button>
+      <p class="credits">Proyecto de Nuevas Tecnologías · ISND · Equipo: <span id="team-names">[Integrantes aquí]</span></p>
+    </div>
+
+    <!-- PANTALLA DE VICTORIA DE NIVEL -->
+    <div id="screen-level-complete" class="screen hidden">
+      <h2>¡Nivel superado!</h2>
+      <p id="level-complete-stats"></p>
+      <button id="btn-next-level">Siguiente nivel</button>
+      <button id="btn-retry-level">Reintentar</button>
+    </div>
+
+    <!-- PANTALLA DE VICTORIA FINAL -->
+    <div id="screen-victory" class="screen hidden">
+      <h2>¡Compilación exitosa! 🎉</h2>
+      <p id="victory-stats"></p>
+      <button id="btn-restart-game">Jugar de nuevo</button>
+      <button id="btn-view-ranking-final">Ver ranking</button>
+    </div>
+
+    <!-- PANTALLA DE DERROTA -->
+    <div id="screen-fail" class="screen hidden">
+      <h2 id="fail-message">Error fatal</h2>
+      <p id="fail-detail"></p>
+      <button id="btn-retry">Reintentar</button>
+      <button id="btn-menu">Menú principal</button>
+    </div>
+
+    <!-- RANKING -->
+    <div id="screen-leaderboard" class="screen hidden">
+      <h2>Ranking</h2>
+      <div id="leaderboard-tabs">
+        <button class="lb-tab" data-level="0">Nivel 1</button>
+        <button class="lb-tab" data-level="1">Nivel 2</button>
+        <button class="lb-tab" data-level="2">Nivel 3</button>
+      </div>
+      <ol id="leaderboard-list"><li>Cargando…</li></ol>
+      <button id="btn-close-leaderboard">Cerrar</button>
+    </div>
+
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="supabase-config.js"></script>
+  <script src="levels.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>

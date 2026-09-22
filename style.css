@@ -1,0 +1,201 @@
+:root {
+  --bg-dark: #0d1117;
+  --bg-panel: #161b22;
+  --accent: #58a6ff;
+  --accent-2: #f778ba;
+  --danger: #f85149;
+  --success: #3fb950;
+  --text: #e6edf3;
+  --text-dim: #8b949e;
+  --border: #30363d;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at 50% 0%, #1a2233, var(--bg-dark));
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  color: var(--text);
+}
+
+#game-container {
+  position: relative;
+  width: 900px;
+  max-width: 96vw;
+}
+
+#hud {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 14px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-bottom: none;
+  border-radius: 10px 10px 0 0;
+  font-size: 14px;
+}
+
+#hud-level { font-weight: 600; color: var(--accent); white-space: nowrap; }
+
+#progress-bar-wrap {
+  flex: 1;
+  height: 10px;
+  background: #0d1117;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+#progress-bar {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  transition: width 0.08s linear;
+}
+
+#hud-attempts, #hud-timer { color: var(--text-dim); white-space: nowrap; }
+
+#game-canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 900 / 360;
+  background: linear-gradient(180deg, #10151f 0%, #0a0e14 100%);
+  border: 1px solid var(--border);
+  border-radius: 0 0 10px 10px;
+}
+
+.screen {
+  position: absolute;
+  inset: 0;
+  background: rgba(13, 17, 23, 0.94);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px;
+  text-align: center;
+}
+
+.screen.hidden { display: none; }
+
+.screen h1 {
+  font-size: 2.4rem;
+  margin: 0;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.screen h2 { margin: 0; font-size: 1.6rem; }
+
+.tagline { color: var(--text-dim); margin-top: -8px; }
+
+.info-box {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 18px;
+  max-width: 560px;
+  font-size: 14px;
+  line-height: 1.5;
+  text-align: left;
+}
+
+.info-box p { margin: 6px 0; }
+kbd {
+  background: #21262d;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-size: 12px;
+}
+
+#name-label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+#player-name {
+  margin-top: 4px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: #0d1117;
+  color: var(--text);
+  font-size: 14px;
+}
+
+button {
+  padding: 10px 22px;
+  font-size: 15px;
+  font-weight: 600;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  background: var(--accent);
+  color: #0d1117;
+  transition: transform 0.08s ease, opacity 0.15s ease;
+}
+
+button:hover { transform: translateY(-1px); opacity: 0.92; }
+button:active { transform: translateY(0); }
+
+button#btn-leaderboard,
+button#btn-retry-level,
+button#btn-menu,
+button#btn-close-leaderboard,
+button#btn-view-ranking-final {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+.credits { font-size: 12px; color: var(--text-dim); margin-top: 6px; }
+
+#fail-message { color: var(--danger); }
+#screen-victory h2, #screen-level-complete h2 { color: var(--success); }
+
+#leaderboard-tabs { display: flex; gap: 8px; margin-bottom: 4px; }
+#leaderboard-tabs button {
+  background: var(--bg-panel);
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+  padding: 6px 14px;
+  font-size: 13px;
+}
+#leaderboard-tabs button.active {
+  background: var(--accent);
+  color: #0d1117;
+}
+
+#leaderboard-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  width: 100%;
+  max-width: 360px;
+  max-height: 220px;
+  overflow-y: auto;
+  text-align: left;
+}
+#leaderboard-list li {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+}
+#leaderboard-list li:first-child { color: #ffd700; font-weight: 600; }
